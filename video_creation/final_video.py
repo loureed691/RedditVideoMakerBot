@@ -26,6 +26,19 @@ from utils.videos import save_data
 
 console = Console()
 
+# Common ffmpeg encoding parameters
+FFMPEG_ENCODING_PARAMS = {
+    "c:v": "h264_nvenc",
+    "b:v": "20M",
+    "b:a": "192k",
+    "threads": multiprocessing.cpu_count(),
+}
+
+# Configuration constants (previously hardcoded)
+ATTRIBUTION_FONT_SIZE = 5
+SCREENSHOT_WIDTH_RATIO = 0.45  # 45% of video width
+MAX_PATH_LENGTH = 251  # Maximum path length to prevent errors
+
 
 class ProgressFfmpeg(threading.Thread):
     def __init__(self, vid_duration_seconds, progress_update_callback):
@@ -94,6 +107,41 @@ def name_normalize(name: str) -> str:
         return name
 
 
+def render_video_with_progress(
+    background_clip,
+    audio_clip,
+    output_path: str,
+    length: int,
+    progress_callback
+) -> None:
+    """Helper function to render video with progress tracking.
+    
+    Args:
+        background_clip: FFmpeg video stream
+        audio_clip: FFmpeg audio stream
+        output_path: Path where video will be saved
+        length: Duration of the video in seconds
+        progress_callback: Callback function for progress updates
+    """
+    with ProgressFfmpeg(length, progress_callback) as progress:
+        try:
+            ffmpeg.output(
+                background_clip,
+                audio_clip,
+                output_path,
+                f="mp4",
+                **FFMPEG_ENCODING_PARAMS,
+            ).overwrite_output().global_args("-progress", progress.output_file.name).run(
+                quiet=True,
+                overwrite_output=True,
+                capture_stdout=False,
+                capture_stderr=False,
+            )
+        except ffmpeg.Error as e:
+            print(f"FFmpeg error during video rendering: {e.stderr.decode('utf8')}")
+            raise
+
+
 def prepare_background(reddit_id: str, W: int, H: int) -> str:
     output_path = f"assets/temp/{reddit_id}/background_noaudio.mp4"
     output = (
@@ -102,20 +150,15 @@ def prepare_background(reddit_id: str, W: int, H: int) -> str:
         .output(
             output_path,
             an=None,
-            **{
-                "c:v": "h264_nvenc",
-                "b:v": "20M",
-                "b:a": "192k",
-                "threads": multiprocessing.cpu_count(),
-            },
+            **FFMPEG_ENCODING_PARAMS,
         )
         .overwrite_output()
     )
     try:
         output.run(quiet=True)
     except ffmpeg.Error as e:
-        print(e.stderr.decode("utf8"))
-        exit(1)
+        print(f"FFmpeg error during background preparation: {e.stderr.decode('utf8')}")
+        raise
     return output_path
 
 
@@ -281,7 +324,7 @@ def make_final_video(
 
     console.log(f"[bold green] Video Will Be: {length} Seconds Long")
 
-    screenshot_width = int((W * 45) // 100)
+    screenshot_width = int(W * SCREENSHOT_WIDTH_RATIO)
     audio = ffmpeg.input(f"assets/temp/{reddit_id}/audio.mp3")
     final_audio = merge_background_audio(audio, reddit_id)
 
@@ -359,9 +402,8 @@ def make_final_video(
                 )
             )
             image_overlay = image_clips[i].filter("colorchannelmixer", aa=opacity)
-            assert (
-                audio_clips_durations is not None
-            ), "Please make a GitHub issue if you see this. Ping @JasonLovesDoggo on GitHub."
+            if audio_clips_durations is None:
+                raise ValueError("Audio clips durations not calculated. Please report this issue on GitHub (@JasonLovesDoggo)")
             background_clip = background_clip.overlay(
                 image_overlay,
                 enable=f"between(t,{current_time},{current_time + audio_clips_durations[i]})",
@@ -426,7 +468,7 @@ def make_final_video(
         text=text,
         x=f"(w-text_w)",
         y=f"(h-text_h)",
-        fontsize=5,
+        fontsize=ATTRIBUTION_FONT_SIZE,
         fontcolor="White",
         fontfile=os.path.join("fonts", "Roboto-Regular.ttf"),
     )
@@ -442,63 +484,21 @@ def make_final_video(
         pbar.update(status - old_percentage)
 
     defaultPath = f"results/{subreddit}"
-    with ProgressFfmpeg(length, on_update_example) as progress:
-        path = defaultPath + f"/{filename}"
-        path = (
-            path[:251] + ".mp4"
-        )  # Prevent a error by limiting the path length, do not change this.
-        try:
-            ffmpeg.output(
-                background_clip,
-                final_audio,
-                path,
-                f="mp4",
-                **{
-                    "c:v": "h264_nvenc",
-                    "b:v": "20M",
-                    "b:a": "192k",
-                    "threads": multiprocessing.cpu_count(),
-                },
-            ).overwrite_output().global_args("-progress", progress.output_file.name).run(
-                quiet=True,
-                overwrite_output=True,
-                capture_stdout=False,
-                capture_stderr=False,
-            )
-        except ffmpeg.Error as e:
-            print(e.stderr.decode("utf8"))
-            exit(1)
+    path = defaultPath + f"/{filename}"
+    path = path[:MAX_PATH_LENGTH] + ".mp4"  # Prevent error by limiting path length
+    
+    render_video_with_progress(background_clip, final_audio, path, length, on_update_example)
+    
     old_percentage = pbar.n
     pbar.update(100 - old_percentage)
+    
     if allowOnlyTTSFolder:
         path = defaultPath + f"/OnlyTTS/{filename}"
-        path = (
-            path[:251] + ".mp4"
-        )  # Prevent a error by limiting the path length, do not change this.
+        path = path[:MAX_PATH_LENGTH] + ".mp4"  # Prevent error by limiting path length
         print_step("Rendering the Only TTS Video 🎥")
-        with ProgressFfmpeg(length, on_update_example) as progress:
-            try:
-                ffmpeg.output(
-                    background_clip,
-                    audio,
-                    path,
-                    f="mp4",
-                    **{
-                        "c:v": "h264_nvenc",
-                        "b:v": "20M",
-                        "b:a": "192k",
-                        "threads": multiprocessing.cpu_count(),
-                    },
-                ).overwrite_output().global_args("-progress", progress.output_file.name).run(
-                    quiet=True,
-                    overwrite_output=True,
-                    capture_stdout=False,
-                    capture_stderr=False,
-                )
-            except ffmpeg.Error as e:
-                print(e.stderr.decode("utf8"))
-                exit(1)
-
+        
+        render_video_with_progress(background_clip, audio, path, length, on_update_example)
+        
         old_percentage = pbar.n
         pbar.update(100 - old_percentage)
     pbar.close()

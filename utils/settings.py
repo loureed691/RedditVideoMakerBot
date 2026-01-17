@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import toml
 from rich.console import Console
@@ -21,14 +21,28 @@ TYPE_MAP = {
 }
 
 
-def safe_type_convert(type_name):
-    """Safely convert type string to type object without using eval()"""
+def safe_type_convert(type_name: Union[str, Type]) -> Type:
+    """Safely convert type string to type object without using eval()
+    
+    Args:
+        type_name: Either a string name of a type or a type object
+        
+    Returns:
+        Type object corresponding to the type name
+    """
     if isinstance(type_name, str):
         return TYPE_MAP.get(type_name, str)
     return type_name
 
 
-def crawl(obj: dict, func=lambda x, y: print(x, y, end="\n"), path=None):
+def crawl(obj: dict, func: Callable[[List, Any], None] = lambda x, y: print(x, y, end="\n"), path: Optional[List] = None) -> None:
+    """Recursively traverse a nested dictionary and apply a function to each leaf value.
+    
+    Args:
+        obj: Dictionary to traverse
+        func: Function to apply to each (path, value) pair
+        path: Current path in the nested structure
+    """
     if path is None:  # path Default argument value is mutable
         path = []
     for key in obj.keys():
@@ -38,8 +52,18 @@ def crawl(obj: dict, func=lambda x, y: print(x, y, end="\n"), path=None):
         func(path + [key], obj[key])
 
 
-def check(value, checks, name):
-    def get_check_value(key, default_result):
+def check(value: Any, checks: dict, name: str) -> Any:
+    """Validate and convert a value according to checks dictionary.
+    
+    Args:
+        value: Value to check
+        checks: Dictionary of validation rules
+        name: Name of the setting being checked
+        
+    Returns:
+        Validated/converted value
+    """
+    def get_check_value(key: str, default_result: Any) -> Any:
         return checks[key] if key in checks else default_result
 
     incorrect = False
@@ -112,7 +136,7 @@ def check(value, checks, name):
     return value
 
 
-def crawl_and_check(obj: dict, path: list, checks: dict = {}, name=""):
+def crawl_and_check(obj: dict, path: list, checks: dict = {}, name: str = "") -> dict:
     if len(path) == 0:
         return check(obj, checks, name)
     if path[0] not in obj.keys():
@@ -121,12 +145,12 @@ def crawl_and_check(obj: dict, path: list, checks: dict = {}, name=""):
     return obj
 
 
-def check_vars(path, checks):
+def check_vars(path: List, checks: dict) -> None:
     global config
     crawl_and_check(config, path, checks)
 
 
-def check_toml(template_file, config_file) -> Tuple[bool, Dict]:
+def check_toml(template_file: str, config_file: str) -> Union[bool, Dict]:
     global config
     config = None
     try:
