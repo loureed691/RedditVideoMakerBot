@@ -164,7 +164,8 @@ class TTSEngine:
             self.last_clip_length = clip.duration
             self.length += clip.duration
             clip.close()
-        except:
+        except Exception as e:
+            print(f"Error loading audio clip: {e}")
             self.length = 0
 
     def create_silence_mp3(self):

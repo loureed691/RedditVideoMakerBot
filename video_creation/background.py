@@ -27,11 +27,13 @@ def load_background_options():
     del _background_options["video"]["__comment"]
     del _background_options["audio"]["__comment"]
 
+    # Fix lambda closure bug by using default argument
     for name in list(_background_options["video"].keys()):
         pos = _background_options["video"][name][3]
 
         if pos != "center":
-            _background_options["video"][name][3] = lambda t: ("center", pos + t)
+            # Use default argument to capture the current value of pos
+            _background_options["video"][name][3] = lambda t, position=pos: ("center", position + t)
 
     return _background_options
 
@@ -68,7 +70,7 @@ def get_background_config(mode: str):
     # Handle default / not supported background using default option.
     # Default : pick random from supported background.
     if not choice or choice not in background_options[mode]:
-        choice = random.choice(list(background_options[mode].keys()))
+        choice = random.choice(tuple(background_options[mode].keys()))
 
     return background_options[mode][choice]
 

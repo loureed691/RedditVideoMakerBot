@@ -6,6 +6,23 @@ import toml
 import tomlkit
 from flask import flash
 
+# Safe type mapping to replace eval()
+TYPE_MAP = {
+    "int": int,
+    "str": str,
+    "bool": bool,
+    "float": float,
+    "list": list,
+    "dict": dict,
+}
+
+
+def safe_type_convert(type_name):
+    """Safely convert type string to type object without using eval()"""
+    if isinstance(type_name, str):
+        return TYPE_MAP.get(type_name, str)
+    return type_name
+
 
 # Get validation checks from template
 def get_checks():
@@ -46,7 +63,8 @@ def check(value, checks):
 
     if not incorrect and "type" in checks:
         try:
-            value = eval(checks["type"])(value)  # fixme remove eval
+            type_func = safe_type_convert(checks["type"])
+            value = type_func(value)
         except Exception:
             incorrect = True
 

@@ -8,7 +8,24 @@ from rich.console import Console
 from utils.console import handle_input
 
 console = Console()
-config = dict  # autocomplete
+config = {}  # Module-level config dict (initialized properly)
+
+# Safe type mapping to replace eval()
+TYPE_MAP = {
+    "int": int,
+    "str": str,
+    "bool": bool,
+    "float": float,
+    "list": list,
+    "dict": dict,
+}
+
+
+def safe_type_convert(type_name):
+    """Safely convert type string to type object without using eval()"""
+    if isinstance(type_name, str):
+        return TYPE_MAP.get(type_name, str)
+    return type_name
 
 
 def crawl(obj: dict, func=lambda x, y: print(x, y, end="\n"), path=None):
@@ -30,8 +47,10 @@ def check(value, checks, name):
         incorrect = True
     if not incorrect and "type" in checks:
         try:
-            value = eval(checks["type"])(value)  # fixme remove eval
-        except:
+            type_func = safe_type_convert(checks["type"])
+            value = type_func(value)
+        except (ValueError, TypeError) as e:
+            console.print(f"[red]Type conversion error: {e}")
             incorrect = True
 
     if (
@@ -78,7 +97,7 @@ def check(value, checks, name):
             + str(name)
             + "[#F7768E bold]=",
             extra_info=get_check_value("explanation", ""),
-            check_type=eval(get_check_value("type", "False")),  # fixme remove eval
+            check_type=safe_type_convert(get_check_value("type", "False")),
             default=get_check_value("default", NotImplemented),
             match=get_check_value("regex", ""),
             err_message=get_check_value("input_error", "Incorrect input"),
@@ -129,9 +148,9 @@ Overwrite it?(y/n)"""
             try:
                 with open(config_file, "w") as f:
                     f.write("")
-            except:
+            except IOError as e:
                 console.print(
-                    f"[red bold]Failed to overwrite {config_file}. Giving up.\nSuggestion: check {config_file} permissions for the user."
+                    f"[red bold]Failed to overwrite {config_file}. Giving up.\nSuggestion: check {config_file} permissions for the user.\nError: {e}"
                 )
                 return False
     except FileNotFoundError:
@@ -143,9 +162,9 @@ Creating it now."""
             with open(config_file, "x") as f:
                 f.write("")
             config = {}
-        except:
+        except IOError as e:
             console.print(
-                f"[red bold]Failed to write to {config_file}. Giving up.\nSuggestion: check the folder's permissions for the user."
+                f"[red bold]Failed to write to {config_file}. Giving up.\nSuggestion: check the folder's permissions for the user.\nError: {e}"
             )
             return False
 

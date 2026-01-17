@@ -9,6 +9,23 @@ from rich.text import Text
 
 console = Console()
 
+# Safe type mapping to replace eval()
+TYPE_MAP = {
+    "int": int,
+    "str": str,
+    "bool": bool,
+    "float": float,
+    "list": list,
+    "dict": dict,
+}
+
+
+def safe_type_convert(type_name):
+    """Safely convert type string to type object without using eval()"""
+    if isinstance(type_name, str):
+        return TYPE_MAP.get(type_name, str)
+    return type_name
+
 
 def print_markdown(text) -> None:
     """Prints a rich info message. Support Markdown syntax."""
@@ -102,9 +119,11 @@ def handle_input(
         user_input = input("").strip()
         if check_type is not False:
             try:
-                isinstance(eval(user_input), check_type)  # fixme: remove eval
-                return check_type(user_input)
-            except:
+                # Safely check if input matches the type
+                converted = check_type(user_input)
+                if isinstance(converted, check_type):
+                    return converted
+            except (ValueError, TypeError) as e:
                 console.print(
                     "[red bold]"
                     + err_message

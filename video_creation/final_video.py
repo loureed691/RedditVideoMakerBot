@@ -5,6 +5,7 @@ import tempfile
 import textwrap
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from os.path import exists  # Needs to be imported specifically
 from pathlib import Path
 from typing import Dict, Final, Tuple
@@ -65,6 +66,15 @@ class ProgressFfmpeg(threading.Thread):
 
     def __exit__(self, *args, **kwargs):
         self.stop()
+        # Close the temporary file properly to prevent resource leak
+        if self.output_file and not self.output_file.closed:
+            self.output_file.close()
+        # Clean up temp file
+        if hasattr(self, 'output_file') and self.output_file.name:
+            try:
+                os.unlink(self.output_file.name)
+            except OSError:
+                pass  # File may already be deleted
 
 
 def name_normalize(name: str) -> str:
@@ -250,14 +260,20 @@ def make_final_video(
         ]
         audio_clips.insert(0, ffmpeg.input(f"assets/temp/{reddit_id}/mp3/title.mp3"))
 
-        audio_clips_durations = [
-            float(ffmpeg.probe(f"assets/temp/{reddit_id}/mp3/{i}.mp3")["format"]["duration"])
-            for i in range(number_of_clips)
-        ]
-        audio_clips_durations.insert(
-            0,
-            float(ffmpeg.probe(f"assets/temp/{reddit_id}/mp3/title.mp3")["format"]["duration"]),
-        )
+        # Parallelize ffmpeg probes for better performance
+        def probe_audio_duration(file_path):
+            """Probe audio file duration"""
+            return float(ffmpeg.probe(file_path)["format"]["duration"])
+        
+        audio_files = [f"assets/temp/{reddit_id}/mp3/{i}.mp3" for i in range(number_of_clips)]
+        audio_files.insert(0, f"assets/temp/{reddit_id}/mp3/title.mp3")
+        
+        # Use ThreadPoolExecutor to probe files in parallel
+        audio_clips_durations = []
+        with ThreadPoolExecutor(max_workers=min(len(audio_files), 10)) as executor:
+            future_to_file = {executor.submit(probe_audio_duration, f): f for f in audio_files}
+            # Maintain order by processing results
+            audio_clips_durations = [future.result() for future in [future_to_file[f] for f in audio_files]]
     audio_concat = ffmpeg.concat(*audio_clips, a=1, v=0)
     ffmpeg.output(
         audio_concat, f"assets/temp/{reddit_id}/audio.mp3", **{"b:a": "192k"}

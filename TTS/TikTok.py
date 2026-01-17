@@ -111,9 +111,9 @@ class TikTok:
         # decode data from base64 to binary
         try:
             raw_voices = data["data"]["v_str"]
-        except:
+        except (KeyError, TypeError) as e:
             print(
-                "The TikTok TTS returned an invalid response. Please try again later, and report this bug."
+                f"The TikTok TTS returned an invalid response. Please try again later, and report this bug. Error: {e}"
             )
             raise TikTokTTSException(0, "Invalid response")
         decoded_voices = base64.b64decode(raw_voices)

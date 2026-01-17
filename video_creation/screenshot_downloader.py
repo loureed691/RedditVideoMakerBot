@@ -36,7 +36,7 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
 
     # set the theme and turn off non-essential cookies
     if settings.config["settings"]["theme"] == "dark":
-        cookie_file = open("./video_creation/data/cookie-dark-mode.json", encoding="utf-8")
+        cookie_path = "./video_creation/data/cookie-dark-mode.json"
         bgcolor = (33, 33, 36, 255)
         txtcolor = (240, 240, 240)
         transparent = False
@@ -46,15 +46,15 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
             bgcolor = (0, 0, 0, 0)
             txtcolor = (255, 255, 255)
             transparent = True
-            cookie_file = open("./video_creation/data/cookie-dark-mode.json", encoding="utf-8")
+            cookie_path = "./video_creation/data/cookie-dark-mode.json"
         else:
             # Switch to dark theme
-            cookie_file = open("./video_creation/data/cookie-dark-mode.json", encoding="utf-8")
+            cookie_path = "./video_creation/data/cookie-dark-mode.json"
             bgcolor = (33, 33, 36, 255)
             txtcolor = (240, 240, 240)
             transparent = False
     else:
-        cookie_file = open("./video_creation/data/cookie-light-mode.json", encoding="utf-8")
+        cookie_path = "./video_creation/data/cookie-light-mode.json"
         bgcolor = (255, 255, 255, 255)
         txtcolor = (0, 0, 0)
         transparent = False
@@ -91,8 +91,10 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
                 "Sec-Ch-Ua": '"Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"',
             },
         )
-        cookies = json.load(cookie_file)
-        cookie_file.close()
+        
+        # Use context manager for file handling
+        with open(cookie_path, encoding="utf-8") as cookie_file:
+            cookies = json.load(cookie_file)
 
         context.add_cookies(cookies)  # load preference cookies
 

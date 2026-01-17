@@ -1,5 +1,6 @@
 import os
 import shutil
+from pathlib import Path
 from os.path import exists
 
 
@@ -13,8 +14,11 @@ def cleanup(reddit_id) -> int:
     Returns:
         int: How many files were deleted
     """
-    directory = f"../assets/temp/{reddit_id}/"
-    if exists(directory):
+    # Use absolute path from script location instead of relative path
+    base_dir = Path(__file__).parent.parent
+    directory = base_dir / "assets" / "temp" / reddit_id
+    
+    if directory.exists():
         shutil.rmtree(directory)
-
         return 1
+    return 0

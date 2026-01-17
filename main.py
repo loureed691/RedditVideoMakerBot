@@ -42,12 +42,13 @@ print_markdown(
 )
 checkversion(__VERSION__)
 
-reddit_id: str
-reddit_object: Dict[str, str | list]
 
-
-def main(POST_ID=None) -> None:
-    global reddit_id, reddit_object
+def main(POST_ID=None) -> tuple:
+    """Main function that generates a video from a Reddit post.
+    
+    Returns:
+        tuple: (reddit_id, reddit_object) for cleanup purposes
+    """
     reddit_object = get_subreddit_threads(POST_ID)
     reddit_id = extract_id(reddit_object)
     print_substep(f"Thread ID is {reddit_id}", style="bold blue")
@@ -62,19 +63,24 @@ def main(POST_ID=None) -> None:
     download_background_audio(bg_config["audio"])
     chop_background(bg_config, length, reddit_object)
     make_final_video(number_of_comments, length, reddit_object, bg_config)
+    return reddit_id, reddit_object
 
 
 def run_many(times) -> None:
+    """Run the main function multiple times."""
+    reddit_id = None
     for x in range(1, times + 1):
         print_step(
             f'on the {x}{("th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th")[x % 10]} iteration of {times}'
         )
-        main()
+        reddit_id, _ = main()
         Popen("cls" if name == "nt" else "clear", shell=True).wait()
+    return reddit_id
 
 
-def shutdown() -> NoReturn:
-    if "reddit_id" in globals():
+def shutdown(reddit_id=None) -> NoReturn:
+    """Cleanup and exit gracefully."""
+    if reddit_id is not None:
         print_markdown("## Clearing temp files")
         cleanup(reddit_id)
 
@@ -104,6 +110,8 @@ if __name__ == "__main__":
             "bold red",
         )
         sys.exit()
+    
+    reddit_id = None
     try:
         if config["reddit"]["thread"]["post_id"]:
             for index, post_id in enumerate(config["reddit"]["thread"]["post_id"].split("+")):
@@ -111,18 +119,18 @@ if __name__ == "__main__":
                 print_step(
                     f'on the {index}{("st" if index % 10 == 1 else ("nd" if index % 10 == 2 else ("rd" if index % 10 == 3 else "th")))} post of {len(config["reddit"]["thread"]["post_id"].split("+"))}'
                 )
-                main(post_id)
+                reddit_id, _ = main(post_id)
                 Popen("cls" if name == "nt" else "clear", shell=True).wait()
         elif config["settings"]["times_to_run"]:
-            run_many(config["settings"]["times_to_run"])
+            reddit_id = run_many(config["settings"]["times_to_run"])
         else:
-            main()
+            reddit_id, _ = main()
     except KeyboardInterrupt:
-        shutdown()
+        shutdown(reddit_id)
     except ResponseException:
         print_markdown("## Invalid credentials")
         print_markdown("Please check your credentials in the config.toml file")
-        shutdown()
+        shutdown(reddit_id)
     except Exception as err:
         config["settings"]["tts"]["tiktok_sessionid"] = "REDACTED"
         config["settings"]["tts"]["elevenlabs_api_key"] = "REDACTED"
