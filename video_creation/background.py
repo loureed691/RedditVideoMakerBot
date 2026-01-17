@@ -70,7 +70,7 @@ def get_background_config(mode: str):
     # Handle default / not supported background using default option.
     # Default : pick random from supported background.
     if not choice or choice not in background_options[mode]:
-        choice = random.choice(tuple(background_options[mode].keys()))
+        choice = random.choice(list(background_options[mode].keys()))
 
     return background_options[mode][choice]
 

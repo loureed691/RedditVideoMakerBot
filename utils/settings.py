@@ -6,33 +6,10 @@ import toml
 from rich.console import Console
 
 from utils.console import handle_input
+from utils.type_conversion import safe_type_convert
 
 console = Console()
 config = {}  # Module-level config dict (initialized properly)
-
-# Safe type mapping to replace eval()
-TYPE_MAP = {
-    "int": int,
-    "str": str,
-    "bool": bool,
-    "float": float,
-    "list": list,
-    "dict": dict,
-}
-
-
-def safe_type_convert(type_name: Union[str, Type]) -> Type:
-    """Safely convert type string to type object without using eval()
-    
-    Args:
-        type_name: Either a string name of a type or a type object
-        
-    Returns:
-        Type object corresponding to the type name
-    """
-    if isinstance(type_name, str):
-        return TYPE_MAP.get(type_name, str)
-    return type_name
 
 
 def crawl(obj: dict, func: Callable[[List, Any], None] = lambda x, y: print(x, y, end="\n"), path: Optional[List] = None) -> None:

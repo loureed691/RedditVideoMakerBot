@@ -80,14 +80,13 @@ class ProgressFfmpeg(threading.Thread):
     def __exit__(self, *args, **kwargs):
         self.stop()
         # Close the temporary file properly to prevent resource leak
-        if self.output_file and not self.output_file.closed:
+        if not self.output_file.closed:
             self.output_file.close()
         # Clean up temp file
-        if hasattr(self, 'output_file') and self.output_file.name:
-            try:
-                os.unlink(self.output_file.name)
-            except OSError:
-                pass  # File may already be deleted
+        try:
+            os.unlink(self.output_file.name)
+        except OSError:
+            pass  # File may already be deleted
 
 
 def name_normalize(name: str) -> str:
@@ -310,12 +309,9 @@ def make_final_video(
         audio_files = [f"assets/temp/{reddit_id}/mp3/{i}.mp3" for i in range(number_of_clips)]
         audio_files.insert(0, f"assets/temp/{reddit_id}/mp3/title.mp3")
         
-        # Use ThreadPoolExecutor to probe files in parallel
-        audio_clips_durations = []
+        # Use ThreadPoolExecutor to probe files in parallel (executor.map preserves order)
         with ThreadPoolExecutor(max_workers=min(len(audio_files), 10)) as executor:
-            future_to_file = {executor.submit(probe_audio_duration, f): f for f in audio_files}
-            # Maintain order by processing results
-            audio_clips_durations = [future.result() for future in [future_to_file[f] for f in audio_files]]
+            audio_clips_durations = list(executor.map(probe_audio_duration, audio_files))
     audio_concat = ffmpeg.concat(*audio_clips, a=1, v=0)
     ffmpeg.output(
         audio_concat, f"assets/temp/{reddit_id}/audio.mp3", **{"b:a": "192k"}

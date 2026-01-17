@@ -6,22 +6,7 @@ import toml
 import tomlkit
 from flask import flash
 
-# Safe type mapping to replace eval()
-TYPE_MAP = {
-    "int": int,
-    "str": str,
-    "bool": bool,
-    "float": float,
-    "list": list,
-    "dict": dict,
-}
-
-
-def safe_type_convert(type_name):
-    """Safely convert type string to type object without using eval()"""
-    if isinstance(type_name, str):
-        return TYPE_MAP.get(type_name, str)
-    return type_name
+from utils.type_conversion import safe_type_convert
 
 
 # Get validation checks from template
