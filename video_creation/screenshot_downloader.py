@@ -117,7 +117,7 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
                 "Your reddit credentials are incorrect! Please modify them accordingly in the config.toml file.",
                 style="red",
             )
-            exit()
+            raise RuntimeError("Invalid Reddit credentials. Please check config.toml")
         else:
             pass
 
@@ -198,7 +198,7 @@ def get_screenshots_of_reddit_posts(reddit_object: dict, screenshot_num: int):
 
             resp = input("Do you want the error traceback for debugging purposes? (y/n)")
             if not resp.casefold().startswith("y"):
-                exit()
+                raise RuntimeError("Screenshot generation failed. Exiting as requested.")
 
             raise e
 

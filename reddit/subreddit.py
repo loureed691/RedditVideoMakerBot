@@ -97,7 +97,7 @@ def get_subreddit_threads(POST_ID: str):
 
     elif not submission.num_comments and settings.config["settings"]["storymode"] == "false":
         print_substep("No comments found. Skipping.")
-        exit()
+        raise ValueError("No comments found on submission. Cannot proceed without comments.")
 
     submission = check_done(submission)  # double-checking
 
