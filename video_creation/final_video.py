@@ -1,3 +1,4 @@
+import json
 import multiprocessing
 import os
 import re
@@ -107,6 +108,101 @@ def prepare_background(reddit_id: str, W: int, H: int) -> str:
         print(e.stderr.decode("utf8"))
         exit(1)
     return output_path
+
+
+def apply_word_by_word_text(background_clip, timings_file, start_time, end_time, W, H):
+    """
+    Apply word-by-word text overlay to the background clip using FFmpeg drawtext.
+
+    Note: For very long text segments (>100 words), this creates multiple drawtext filters
+    which may impact rendering performance. Consider optimizing for production use with
+    long-form content.
+
+    Args:
+        background_clip: FFmpeg video stream
+        timings_file: Path to the JSON file with word timings
+        start_time: Start time in the video
+        end_time: End time in the video
+        W: Video width
+        H: Video height
+
+    Returns:
+        Video clip with word-by-word text overlay
+    """
+    # Check if timings file exists
+    if not os.path.exists(timings_file):
+        return background_clip
+
+    # Load word timings
+    try:
+        with open(timings_file, "r", encoding="utf-8") as f:
+            timings = json.load(f)
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+        print(f"Warning: Could not read or parse word timings from {timings_file}: {e}")
+        return background_clip
+
+    if not timings:
+        return background_clip
+
+    # Font settings
+    fontfile = os.path.join("fonts", "Roboto-Bold.ttf")
+
+    # Verify font file exists
+    if not os.path.exists(fontfile):
+        print(f"Warning: Font file {fontfile} not found, skipping word-by-word text")
+        return background_clip
+
+    fontsize = max(30, int(H / 30))  # Scale font size based on video height
+    fontcolor = "white"
+
+    # Position at bottom of frame
+    y_pos = f"{int(H * 0.70)}"
+    x_pos = "(w-text_w)/2"
+
+    # FFmpeg escape patterns - comprehensive escaping for drawtext filter
+    def escape_ffmpeg_text(text):
+        """Escape special characters for FFmpeg drawtext filter"""
+        # Order matters: backslash must be escaped first
+        text = text.replace("\\", "\\\\")
+        text = text.replace("'", r"'\''")
+        text = text.replace(":", r"\:")
+        text = text.replace("%", r"\%")
+        text = text.replace("\n", r"\n")
+        text = text.replace("\t", r"\t")
+        return text
+
+    # Build progressive text overlays
+    for i, timing in enumerate(timings):
+        # Build text up to this word
+        progressive_text = " ".join([t["word"] for t in timings[: i + 1]])
+
+        # Escape special characters for FFmpeg
+        progressive_text = escape_ffmpeg_text(progressive_text)
+
+        # Calculate absolute time in video
+        abs_start = start_time + timing["start"]
+        if i < len(timings) - 1:
+            abs_end = start_time + timings[i + 1]["start"]
+        else:
+            # For the last word, use its actual end time, clamped to the overall end_time
+            abs_end = min(start_time + timing["end"], end_time)
+
+        # Apply drawtext filter for this time range
+        background_clip = ffmpeg.drawtext(
+            background_clip,
+            text=progressive_text,
+            fontfile=fontfile,
+            fontsize=fontsize,
+            fontcolor=fontcolor,
+            x=x_pos,
+            y=y_pos,
+            box=1,
+            boxcolor="black@0.7",
+            boxborderw=10,
+            enable=f"between(t,{abs_start:.3f},{abs_end:.3f})",
+        )
+
+    return background_clip
 
 
 def get_text_height(draw, text, font, max_width):
@@ -320,6 +416,19 @@ def make_final_video(
                 x="(main_w-overlay_w)/2",
                 y="(main_h-overlay_h)/2",
             )
+
+            # Add word-by-word text overlay for title if enabled
+            if settings.config["settings"].get("word_by_word_text", False):
+                title_timings_file = f"assets/temp/{reddit_id}/mp3/title_timings.json"
+                background_clip = apply_word_by_word_text(
+                    background_clip,
+                    title_timings_file,
+                    0,
+                    audio_clips_durations[0],
+                    W,
+                    H,
+                )
+
             current_time += audio_clips_durations[0]
         elif settings.config["settings"]["storymodemethod"] == 1:
             for i in track(range(0, number_of_clips + 1), "Collecting the image files..."):
@@ -334,6 +443,19 @@ def make_final_video(
                     x="(main_w-overlay_w)/2",
                     y="(main_h-overlay_h)/2",
                 )
+
+                # Add word-by-word text overlay if enabled
+                if settings.config["settings"].get("word_by_word_text", False):
+                    timings_file = f"assets/temp/{reddit_id}/mp3/postaudio-{i}_timings.json"
+                    background_clip = apply_word_by_word_text(
+                        background_clip,
+                        timings_file,
+                        current_time,
+                        current_time + audio_clips_durations[i],
+                        W,
+                        H,
+                    )
+
                 current_time += audio_clips_durations[i]
     else:
         for i in range(0, number_of_clips + 1):
@@ -352,6 +474,25 @@ def make_final_video(
                 x="(main_w-overlay_w)/2",
                 y="(main_h-overlay_h)/2",
             )
+
+            # Add word-by-word text overlay if enabled
+            if settings.config["settings"].get("word_by_word_text", False):
+                if i == 0:
+                    # Title
+                    timings_file = f"assets/temp/{reddit_id}/mp3/title_timings.json"
+                else:
+                    # Comment
+                    timings_file = f"assets/temp/{reddit_id}/mp3/{i-1}_timings.json"
+
+                background_clip = apply_word_by_word_text(
+                    background_clip,
+                    timings_file,
+                    current_time,
+                    current_time + audio_clips_durations[i],
+                    W,
+                    H,
+                )
+
             current_time += audio_clips_durations[i]
 
     title = extract_id(reddit_obj, "thread_title")

@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from pathlib import Path
@@ -13,6 +14,7 @@ from rich.progress import track
 from utils import settings
 from utils.console import print_step, print_substep
 from utils.voice import sanitize_text
+from utils.word_timing import estimate_word_timings, save_word_timings
 
 DEFAULT_MAX_LENGTH: int = (
     50  # Video length variable, edit this on your own risk. It should work, but it's not supported
@@ -104,6 +106,7 @@ class TTSEngine:
 
     def split_post(self, text: str, idx):
         split_files = []
+        split_timings = []  # Store timing files for merging
         split_text = [
             x.group().strip()
             for x in re.finditer(
@@ -127,6 +130,11 @@ class TTSEngine:
                     split_files.append(str(f"{self.path}/{idx}-{idy}.part.mp3"))
                     f.write("file " + f"'silence.mp3'" + "\n")
 
+                # Track timing files for merging
+                timing_file = f"{self.path}/{idx}-{idy}.part_timings.json"
+                if os.path.exists(timing_file):
+                    split_timings.append(timing_file)
+
                 os.system(
                     "ffmpeg -f concat -y -hide_banner -loglevel panic -safe 0 "
                     + "-i "
@@ -134,9 +142,18 @@ class TTSEngine:
                     + "-c copy "
                     + f"{self.path}/{idx}.mp3"
                 )
+
+        # Merge timing files if word-by-word feature is enabled
+        if settings.config["settings"].get("word_by_word_text", False) and split_timings:
+            self._merge_timing_files(split_timings, f"{self.path}/{idx}_timings.json")
+
         try:
             for i in range(0, len(split_files)):
                 os.unlink(split_files[i])
+                # Also clean up part timing files
+                timing_file = split_files[i].replace(".mp3", "_timings.json")
+                if os.path.exists(timing_file):
+                    os.unlink(timing_file)
         except FileNotFoundError as e:
             print("File not found: " + e.filename)
         except OSError:
@@ -163,8 +180,21 @@ class TTSEngine:
             clip = AudioFileClip(f"{self.path}/{filename}.mp3")
             self.last_clip_length = clip.duration
             self.length += clip.duration
+
+            # Generate and save word timing information if word-by-word feature is enabled
+            if settings.config["settings"].get("word_by_word_text", False):
+                try:
+                    timings = estimate_word_timings(text, clip.duration)
+                    timing_path = f"{self.path}/{filename}_timings.json"
+                    save_word_timings(timings, timing_path)
+                except (OSError, ValueError, TypeError) as e:
+                    print(
+                        f"Warning: Could not generate word timings for {filename} "
+                        f"({type(e).__name__}: {e})"
+                    )
+
             clip.close()
-        except:
+        except Exception:
             self.length = 0
 
     def create_silence_mp3(self):
@@ -176,6 +206,48 @@ class TTSEngine:
         )
         silence = silence.with_effects([MultiplyVolume(0)])
         silence.write_audiofile(f"{self.path}/silence.mp3", fps=44100, logger=None)
+
+    def _merge_timing_files(self, timing_files: list, output_file: str):
+        """
+        Merge multiple timing files from split posts into a single timing file.
+        Adjusts timing offsets to account for concatenated audio.
+
+        Args:
+            timing_files: List of paths to timing JSON files to merge
+            output_file: Path to save the merged timing file
+        """
+        merged_timings = []
+        current_offset = 0.0
+
+        for timing_file in timing_files:
+            try:
+                with open(timing_file, "r", encoding="utf-8") as f:
+                    timings = json.load(f)
+
+                # Add offset to all timings and append
+                for timing in timings:
+                    merged_timings.append(
+                        {
+                            "word": timing["word"],
+                            "start": timing["start"] + current_offset,
+                            "end": timing["end"] + current_offset,
+                        }
+                    )
+
+                # Update offset for next segment (using the last word's end time)
+                if timings:
+                    current_offset = merged_timings[-1]["end"]
+                    # Add silence duration between segments
+                    silence_duration = settings.config["settings"]["tts"]["silence_duration"]
+                    current_offset += silence_duration
+
+            except (FileNotFoundError, json.JSONDecodeError) as e:
+                print(f"Warning: Could not read timing file {timing_file}: {e}")
+                continue
+
+        # Save merged timings
+        if merged_timings:
+            save_word_timings(merged_timings, output_file)
 
 
 def process_text(text: str, clean: bool = True):
