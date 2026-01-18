@@ -110,13 +110,12 @@ def prepare_background(reddit_id: str, W: int, H: int) -> str:
     return output_path
 
 
-def apply_word_by_word_text(background_clip, text, timings_file, start_time, end_time, W, H):
+def apply_word_by_word_text(background_clip, timings_file, start_time, end_time, W, H):
     """
     Apply word-by-word text overlay to the background clip using FFmpeg drawtext.
 
     Args:
         background_clip: FFmpeg video stream
-        text: The full text content
         timings_file: Path to the JSON file with word timings
         start_time: Start time in the video
         end_time: End time in the video
@@ -134,8 +133,8 @@ def apply_word_by_word_text(background_clip, text, timings_file, start_time, end
     try:
         with open(timings_file, "r", encoding="utf-8") as f:
             timings = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Warning: Could not load word timings from {timings_file}: {e}")
+    except json.JSONDecodeError as e:
+        print(f"Warning: Could not parse word timings from {timings_file}: {e}")
         return background_clip
 
     if not timings:
@@ -143,6 +142,12 @@ def apply_word_by_word_text(background_clip, text, timings_file, start_time, end
 
     # Font settings
     fontfile = os.path.join("fonts", "Roboto-Bold.ttf")
+
+    # Verify font file exists
+    if not os.path.exists(fontfile):
+        print(f"Warning: Font file {fontfile} not found, skipping word-by-word text")
+        return background_clip
+
     fontsize = max(30, int(H / 30))  # Scale font size based on video height
     fontcolor = "white"
 
@@ -405,16 +410,14 @@ def make_final_video(
             # Add word-by-word text overlay for title if enabled
             if settings.config["settings"].get("word_by_word_text", False):
                 title_timings_file = f"assets/temp/{reddit_id}/mp3/title_timings.json"
-                if os.path.exists(title_timings_file):
-                    background_clip = apply_word_by_word_text(
-                        background_clip,
-                        reddit_obj["thread_title"],
-                        title_timings_file,
-                        0,
-                        audio_clips_durations[0],
-                        W,
-                        H,
-                    )
+                background_clip = apply_word_by_word_text(
+                    background_clip,
+                    title_timings_file,
+                    0,
+                    audio_clips_durations[0],
+                    W,
+                    H,
+                )
 
             current_time += audio_clips_durations[0]
         elif settings.config["settings"]["storymodemethod"] == 1:
@@ -434,21 +437,14 @@ def make_final_video(
                 # Add word-by-word text overlay if enabled
                 if settings.config["settings"].get("word_by_word_text", False):
                     timings_file = f"assets/temp/{reddit_id}/mp3/postaudio-{i}_timings.json"
-                    if os.path.exists(timings_file):
-                        text_content = (
-                            reddit_obj["thread_post"][i]
-                            if i < len(reddit_obj["thread_post"])
-                            else ""
-                        )
-                        background_clip = apply_word_by_word_text(
-                            background_clip,
-                            text_content,
-                            timings_file,
-                            current_time,
-                            current_time + audio_clips_durations[i],
-                            W,
-                            H,
-                        )
+                    background_clip = apply_word_by_word_text(
+                        background_clip,
+                        timings_file,
+                        current_time,
+                        current_time + audio_clips_durations[i],
+                        W,
+                        H,
+                    )
 
                 current_time += audio_clips_durations[i]
     else:
@@ -474,26 +470,18 @@ def make_final_video(
                 if i == 0:
                     # Title
                     timings_file = f"assets/temp/{reddit_id}/mp3/title_timings.json"
-                    text_content = reddit_obj["thread_title"]
                 else:
                     # Comment
                     timings_file = f"assets/temp/{reddit_id}/mp3/{i-1}_timings.json"
-                    text_content = (
-                        reddit_obj["comments"][i - 1]["comment_body"]
-                        if i - 1 < len(reddit_obj["comments"])
-                        else ""
-                    )
 
-                if os.path.exists(timings_file):
-                    background_clip = apply_word_by_word_text(
-                        background_clip,
-                        text_content,
-                        timings_file,
-                        current_time,
-                        current_time + audio_clips_durations[i],
-                        W,
-                        H,
-                    )
+                background_clip = apply_word_by_word_text(
+                    background_clip,
+                    timings_file,
+                    current_time,
+                    current_time + audio_clips_durations[i],
+                    W,
+                    H,
+                )
 
             current_time += audio_clips_durations[i]
 

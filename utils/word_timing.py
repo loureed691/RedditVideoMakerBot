@@ -4,7 +4,6 @@ This module estimates word timings based on audio duration and word count.
 """
 
 import json
-import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -21,7 +20,8 @@ def estimate_word_timings(text: str, audio_duration: float) -> List[Dict[str, An
         List of dictionaries with 'word', 'start', and 'end' times
     """
     # Split text into words (removing extra whitespace and punctuation for timing)
-    words = text.split()
+    words = [word.strip() for word in text.split() if word.strip()]
+
     if not words:
         return []
 
@@ -32,13 +32,8 @@ def estimate_word_timings(text: str, audio_duration: float) -> List[Dict[str, An
     current_time = 0.0
 
     for word in words:
-        # Clean word for display but keep original for timing calculation
-        clean_word = word.strip()
-        if clean_word:
-            timings.append(
-                {"word": clean_word, "start": current_time, "end": current_time + time_per_word}
-            )
-            current_time += time_per_word
+        timings.append({"word": word, "start": current_time, "end": current_time + time_per_word})
+        current_time += time_per_word
 
     return timings
 
