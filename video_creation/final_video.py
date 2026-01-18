@@ -114,6 +114,10 @@ def apply_word_by_word_text(background_clip, timings_file, start_time, end_time,
     """
     Apply word-by-word text overlay to the background clip using FFmpeg drawtext.
 
+    Note: For very long text segments (>100 words), this creates multiple drawtext filters
+    which may impact rendering performance. Consider optimizing for production use with
+    long-form content.
+
     Args:
         background_clip: FFmpeg video stream
         timings_file: Path to the JSON file with word timings
@@ -133,8 +137,8 @@ def apply_word_by_word_text(background_clip, timings_file, start_time, end_time,
     try:
         with open(timings_file, "r", encoding="utf-8") as f:
             timings = json.load(f)
-    except json.JSONDecodeError as e:
-        print(f"Warning: Could not parse word timings from {timings_file}: {e}")
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+        print(f"Warning: Could not read or parse word timings from {timings_file}: {e}")
         return background_clip
 
     if not timings:
@@ -155,10 +159,17 @@ def apply_word_by_word_text(background_clip, timings_file, start_time, end_time,
     y_pos = f"{int(H * 0.70)}"
     x_pos = "(w-text_w)/2"
 
-    # FFmpeg escape patterns
-    FFMPEG_ESCAPE_SINGLE_QUOTE = r"'\\''"
-    FFMPEG_ESCAPE_COLON = r"\:"
-    FFMPEG_ESCAPE_PERCENT = r"\%"
+    # FFmpeg escape patterns - comprehensive escaping for drawtext filter
+    def escape_ffmpeg_text(text):
+        """Escape special characters for FFmpeg drawtext filter"""
+        # Order matters: backslash must be escaped first
+        text = text.replace("\\", "\\\\")
+        text = text.replace("'", r"'\''")
+        text = text.replace(":", r"\:")
+        text = text.replace("%", r"\%")
+        text = text.replace("\n", r"\n")
+        text = text.replace("\t", r"\t")
+        return text
 
     # Build progressive text overlays
     for i, timing in enumerate(timings):
@@ -166,16 +177,15 @@ def apply_word_by_word_text(background_clip, timings_file, start_time, end_time,
         progressive_text = " ".join([t["word"] for t in timings[: i + 1]])
 
         # Escape special characters for FFmpeg
-        progressive_text = progressive_text.replace("'", FFMPEG_ESCAPE_SINGLE_QUOTE)
-        progressive_text = progressive_text.replace(":", FFMPEG_ESCAPE_COLON)
-        progressive_text = progressive_text.replace("%", FFMPEG_ESCAPE_PERCENT)
+        progressive_text = escape_ffmpeg_text(progressive_text)
 
         # Calculate absolute time in video
         abs_start = start_time + timing["start"]
         if i < len(timings) - 1:
             abs_end = start_time + timings[i + 1]["start"]
         else:
-            abs_end = end_time
+            # For the last word, use its actual end time, clamped to the overall end_time
+            abs_end = min(start_time + timing["end"], end_time)
 
         # Apply drawtext filter for this time range
         background_clip = ffmpeg.drawtext(

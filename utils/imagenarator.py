@@ -6,7 +6,6 @@ from PIL import Image, ImageDraw, ImageFont
 from rich.progress import track
 
 from TTS.engine_wrapper import process_text
-from utils import settings
 from utils.fonts import getheight, getsize
 from utils.id import extract_id
 

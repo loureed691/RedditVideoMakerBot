@@ -18,12 +18,18 @@ def estimate_word_timings(text: str, audio_duration: float) -> List[Dict[str, An
 
     Returns:
         List of dictionaries with 'word', 'start', and 'end' times
+
+    Raises:
+        ValueError: If audio_duration is not positive
     """
     # Split text into words (removing extra whitespace and punctuation for timing)
     words = [word.strip() for word in text.split() if word.strip()]
 
     if not words:
         return []
+
+    if audio_duration <= 0:
+        raise ValueError(f"audio_duration must be positive, got {audio_duration}")
 
     # Calculate average time per word
     time_per_word = audio_duration / len(words)
@@ -55,6 +61,9 @@ def load_word_timings(filepath: str) -> List[Dict[str, Any]]:
     """
     Load word timings from a JSON file.
 
+    Note: This function is part of the public utility API and may be used by external
+    callers (e.g., UI layers, testing code) to load previously saved timing information.
+
     Args:
         filepath: Path to the JSON file
 
@@ -71,15 +80,22 @@ def load_word_timings(filepath: str) -> List[Dict[str, Any]]:
 
 def get_progressive_text_at_time(timings: List[Dict[str, Any]], time: float) -> str:
     """
-    Get the text that should be displayed at a given time.
-    Returns all words that have started by the given time.
+    Compute the progressive text that should be visible at a given playback time.
+
+    This helper is intended as part of the public utility API of this module and may be
+    used by external callers (e.g., UI layers, animation code, or tests) to reconstruct
+    the text that should be displayed word-by-word based on timing information.
+
+    All words whose `start` time is less than or equal to the given time are included,
+    in their original order, and joined into a single string.
 
     Args:
-        timings: List of word timing dictionaries
-        time: Current time in seconds
+        timings: List of word timing dictionaries, each containing at least
+            ``"word"`` (str) and ``"start"`` (float) keys.
+        time: Current time in seconds.
 
     Returns:
-        String containing all words that should be visible at the given time
+        A string containing all words that should be visible at the given time.
     """
     visible_words = [timing["word"] for timing in timings if timing["start"] <= time]
     return " ".join(visible_words)
