@@ -6,7 +6,7 @@ This module creates transparent PNG overlays with progressive text.
 import os
 import textwrap
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -80,7 +80,7 @@ def create_text_overlay_image(
     # Load font
     try:
         font = ImageFont.truetype(fontfile, fontsize)
-    except:
+    except (OSError, IOError):
         font = ImageFont.load_default()
 
     # Wrap text to fit width
@@ -117,16 +117,16 @@ def create_text_overlay_image(
 
     # Draw text lines
     y = y_start
-    for line, line_width in zip(lines, line_widths):
+    for idx, (line, line_width, line_height) in enumerate(zip(lines, line_widths, line_heights)):
         x = (width - line_width) // 2
         draw.text((x, y), line, font=font, fill=fontcolor)
-        y += line_heights[lines.index(line)] + padding // 2
+        y += line_height + padding // 2
 
     return image
 
 
 def generate_word_by_word_frames(
-    timings: List[Dict[str, any]],
+    timings: List[Dict[str, Any]],
     width: int,
     height: int,
     output_dir: str,

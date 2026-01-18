@@ -146,15 +146,20 @@ def apply_word_by_word_text(background_clip, text, timings_file, start_time, end
     y_pos = f"{int(H * 0.70)}"
     x_pos = "(w-text_w)/2"
 
+    # FFmpeg escape patterns
+    FFMPEG_ESCAPE_SINGLE_QUOTE = r"'\\''"
+    FFMPEG_ESCAPE_COLON = r"\:"
+    FFMPEG_ESCAPE_PERCENT = r"\%"
+
     # Build progressive text overlays
     for i, timing in enumerate(timings):
         # Build text up to this word
         progressive_text = " ".join([t["word"] for t in timings[: i + 1]])
 
         # Escape special characters for FFmpeg
-        progressive_text = progressive_text.replace("'", "'\\\\\\''")
-        progressive_text = progressive_text.replace(":", "\\:")
-        progressive_text = progressive_text.replace("%", "\\%")
+        progressive_text = progressive_text.replace("'", FFMPEG_ESCAPE_SINGLE_QUOTE)
+        progressive_text = progressive_text.replace(":", FFMPEG_ESCAPE_COLON)
+        progressive_text = progressive_text.replace("%", FFMPEG_ESCAPE_PERCENT)
 
         # Calculate absolute time in video
         abs_start = start_time + timing["start"]

@@ -6,10 +6,10 @@ This module estimates word timings based on audio duration and word count.
 import json
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
-def estimate_word_timings(text: str, audio_duration: float) -> List[Dict[str, any]]:
+def estimate_word_timings(text: str, audio_duration: float) -> List[Dict[str, Any]]:
     """
     Estimate word-level timing based on text and audio duration.
 
@@ -43,7 +43,7 @@ def estimate_word_timings(text: str, audio_duration: float) -> List[Dict[str, an
     return timings
 
 
-def save_word_timings(timings: List[Dict[str, any]], filepath: str):
+def save_word_timings(timings: List[Dict[str, Any]], filepath: str):
     """
     Save word timings to a JSON file.
 
@@ -56,7 +56,7 @@ def save_word_timings(timings: List[Dict[str, any]], filepath: str):
         json.dump(timings, f, indent=2, ensure_ascii=False)
 
 
-def load_word_timings(filepath: str) -> List[Dict[str, any]]:
+def load_word_timings(filepath: str) -> List[Dict[str, Any]]:
     """
     Load word timings from a JSON file.
 
@@ -70,7 +70,7 @@ def load_word_timings(filepath: str) -> List[Dict[str, any]]:
         return json.load(f)
 
 
-def get_progressive_text_at_time(timings: List[Dict[str, any]], time: float) -> str:
+def get_progressive_text_at_time(timings: List[Dict[str, Any]], time: float) -> str:
     """
     Get the text that should be displayed at a given time.
     Returns all words that have started by the given time.

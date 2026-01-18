@@ -4,14 +4,14 @@ Helper functions for adding word-by-word text overlays to videos using FFmpeg.
 
 import os
 import textwrap
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import ffmpeg
 
 
 def create_word_by_word_drawtext_filter(
     text: str,
-    timings: List[Dict[str, any]],
+    timings: List[Dict[str, Any]],
     start_time: float,
     fontfile: str,
     fontsize: int = 40,
@@ -81,7 +81,7 @@ def create_word_by_word_drawtext_filter(
 def apply_word_by_word_overlay(
     video_clip,
     text: str,
-    timings: List[Dict[str, any]],
+    timings: List[Dict[str, Any]],
     start_time: float,
     fontfile: str = None,
     fontsize: int = 40,
