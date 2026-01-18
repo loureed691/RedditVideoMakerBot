@@ -6,10 +6,10 @@ from PIL import Image, ImageDraw, ImageFont
 from rich.progress import track
 
 from TTS.engine_wrapper import process_text
+from utils import settings
 from utils.fonts import getheight, getsize
 from utils.id import extract_id
-from utils import settings
-from utils.word_timing import load_word_timings, get_progressive_text_at_time
+from utils.word_timing import get_progressive_text_at_time, load_word_timings
 
 
 def draw_multiple_line_text(
