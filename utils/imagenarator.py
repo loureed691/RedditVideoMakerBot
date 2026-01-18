@@ -8,6 +8,8 @@ from rich.progress import track
 from TTS.engine_wrapper import process_text
 from utils.fonts import getheight, getsize
 from utils.id import extract_id
+from utils import settings
+from utils.word_timing import load_word_timings, get_progressive_text_at_time
 
 
 def draw_multiple_line_text(

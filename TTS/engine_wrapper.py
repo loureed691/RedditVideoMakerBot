@@ -13,6 +13,7 @@ from rich.progress import track
 from utils import settings
 from utils.console import print_step, print_substep
 from utils.voice import sanitize_text
+from utils.word_timing import estimate_word_timings, save_word_timings
 
 DEFAULT_MAX_LENGTH: int = (
     50  # Video length variable, edit this on your own risk. It should work, but it's not supported
@@ -163,6 +164,13 @@ class TTSEngine:
             clip = AudioFileClip(f"{self.path}/{filename}.mp3")
             self.last_clip_length = clip.duration
             self.length += clip.duration
+            
+            # Generate and save word timing information if word-by-word feature is enabled
+            if settings.config["settings"].get("word_by_word_text", False):
+                timings = estimate_word_timings(text, clip.duration)
+                timing_path = f"{self.path}/{filename}_timings.json"
+                save_word_timings(timings, timing_path)
+            
             clip.close()
         except:
             self.length = 0
