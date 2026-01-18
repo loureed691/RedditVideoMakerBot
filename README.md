@@ -39,7 +39,7 @@ The only original thing being done is the editing and gathering of all materials
 
 1. Clone this repository:
     ```sh
-    git clone https://github.com/elebumm/RedditVideoMakerBot.git
+    git clone https://github.com/loureed691/RedditVideoMakerBot.git
     cd RedditVideoMakerBot
     ```
 
@@ -71,7 +71,7 @@ The only original thing being done is the editing and gathering of all materials
 **EXPERIMENTAL!!!!**
 
    - On macOS and Linux (Debian, Arch, Fedora, CentOS, and based on those), you can run an installation script that will automatically install steps 1 to 3. (requires bash)
-   - `bash <(curl -sL https://raw.githubusercontent.com/elebumm/RedditVideoMakerBot/master/install.sh)`
+   - `bash <(curl -sL https://raw.githubusercontent.com/loureed691/RedditVideoMakerBot/master/install.sh)`
    - This can also be used to update the installation
 
 ---
