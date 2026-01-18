@@ -9,7 +9,6 @@ from TTS.engine_wrapper import process_text
 from utils import settings
 from utils.fonts import getheight, getsize
 from utils.id import extract_id
-from utils.word_timing import get_progressive_text_at_time, load_word_timings
 
 
 def draw_multiple_line_text(

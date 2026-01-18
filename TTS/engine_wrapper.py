@@ -167,12 +167,15 @@ class TTSEngine:
 
             # Generate and save word timing information if word-by-word feature is enabled
             if settings.config["settings"].get("word_by_word_text", False):
-                timings = estimate_word_timings(text, clip.duration)
-                timing_path = f"{self.path}/{filename}_timings.json"
-                save_word_timings(timings, timing_path)
+                try:
+                    timings = estimate_word_timings(text, clip.duration)
+                    timing_path = f"{self.path}/{filename}_timings.json"
+                    save_word_timings(timings, timing_path)
+                except Exception as e:
+                    print(f"Warning: Could not generate word timings for {filename}: {e}")
 
             clip.close()
-        except:
+        except Exception:
             self.length = 0
 
     def create_silence_mp3(self):

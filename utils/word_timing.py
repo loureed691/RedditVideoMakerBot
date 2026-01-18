@@ -65,6 +65,10 @@ def load_word_timings(filepath: str) -> List[Dict[str, Any]]:
 
     Returns:
         List of word timing dictionaries
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        json.JSONDecodeError: If the file contains invalid JSON
     """
     with open(filepath, "r", encoding="utf-8") as f:
         return json.load(f)

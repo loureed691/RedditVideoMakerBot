@@ -131,8 +131,12 @@ def apply_word_by_word_text(background_clip, text, timings_file, start_time, end
         return background_clip
 
     # Load word timings
-    with open(timings_file, "r", encoding="utf-8") as f:
-        timings = json.load(f)
+    try:
+        with open(timings_file, "r", encoding="utf-8") as f:
+            timings = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Warning: Could not load word timings from {timings_file}: {e}")
+        return background_clip
 
     if not timings:
         return background_clip
